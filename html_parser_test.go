@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func Test_getHeadingFromHTML(t *testing.T) {
 	tests := []struct {
@@ -188,6 +191,287 @@ func Test_getHeadingFromHTML(t *testing.T) {
 			got := getHeadingFromHTML(tt.html)
 			if got != tt.want {
 				t.Errorf("getHeadingFromHTML() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getFirstParagraphFromHTML(t *testing.T) {
+	tests := []struct {
+		name string
+		html string
+		want string
+	}{
+		// --- Main tag with paragraph inside ---
+		{
+			name: "main tag with simple paragraph",
+			html: "<main><p>Main content</p></main>",
+			want: "Main content",
+		},
+		{
+			name: "main tag with multiple paragraphs - first wins",
+			html: "<main><p>First</p><p>Second</p></main>",
+			want: "First",
+		},
+		{
+			name: "main tag with paragraph and other elements",
+			html: "<main><h1>Title</h1><p>Main paragraph</p></main>",
+			want: "Main paragraph",
+		},
+		{
+			name: "main tag with nested paragraph",
+			html: "<main><div><p>Nested in div</p></div></main>",
+			want: "Nested in div",
+		},
+		{
+			name: "main tag with attributes",
+			html: `<main class="content"><p>Attributed main</p></main>`,
+			want: "Attributed main",
+		},
+		{
+			name: "main tag with empty paragraph",
+			html: "<main><p></p></main>",
+			want: "",
+		},
+		{
+			name: "main tag with whitespace paragraph",
+			html: "<main><p>   </p></main>",
+			want: "",
+		},
+		{
+			name: "main tag with paragraph with inner tags",
+			html: "<main><p><strong>Bold</strong> text</p></main>",
+			want: "Bold text",
+		},
+
+		// --- Main tag exists but no paragraph inside ---
+		{
+			name: "main exists but no p inside - fallback to first p outside",
+			html: "<main><div>No paragraphs here</div></main><p>Fallback paragraph</p>",
+			want: "Fallback paragraph",
+		},
+		{
+			name: "main exists empty - fallback to first p",
+			html: "<main></main><p>Outside paragraph</p>",
+			want: "Outside paragraph",
+		},
+		{
+			name: "main exists with headings only - fallback",
+			html: "<main><h1>Title</h1><h2>Subtitle</h2></main><p>Fallback</p>",
+			want: "Fallback",
+		},
+		{
+			name: "main exists no p anywhere",
+			html: "<main><div>No paragraphs at all</div></main>",
+			want: "",
+		},
+
+		// --- No main tag - fallback to first p ---
+		{
+			name: "no main tag - simple paragraph",
+			html: "<p>Hello World</p>",
+			want: "Hello World",
+		},
+		{
+			name: "no main tag - multiple paragraphs first wins",
+			html: "<p>First</p><p>Second</p>",
+			want: "First",
+		},
+
+		// --- Multiple main tags ---
+		{
+			name: "multiple main tags - first main wins",
+			html: "<main><p>First main</p></main><main><p>Second main</p></main>",
+			want: "First main",
+		},
+
+		// --- Main tag edge cases ---
+		{
+			name: "main tag not closed",
+			html: "<main><p>Unclosed main</p>",
+			want: "Unclosed main",
+		},
+		{
+			name: "main tag with mixed case",
+			html: "<MAIN><p>Mixed case main</p></MAIN>",
+			want: "Mixed case main",
+		},
+		{
+			name: "main tag deeply nested in document",
+			html: "<!DOCTYPE html><html><body><main><p>Deep main paragraph</p></main></body></html>",
+			want: "Deep main paragraph",
+		},
+		{
+			name: "paragraph before main - main wins",
+			html: "<p>Before main</p><main><p>Inside main</p></main>",
+			want: "Inside main",
+		},
+		{
+			name: "main with paragraph and style tag",
+			html: "<main><style>.x{color:red}</style><p>Visible text</p></main>",
+			want: "Visible text",
+		},
+
+		// --- Single paragraph (no main) ---
+		{
+			name: "paragraph with extra whitespace",
+			html: "<p>   Hello World   </p>",
+			want: "Hello World",
+		},
+		{
+			name: "paragraph with extra whitespace",
+			html: "<p>   Hello World   </p>",
+			want: "Hello World",
+		},
+		{
+			name: "paragraph with newlines and tabs",
+			html: "<p>\n\tHello\n\tWorld\n</p>",
+			want: "Hello World",
+		},
+		{
+			name: "paragraph nested inside div",
+			html: "<div><p>Nested paragraph</p></div>",
+			want: "Nested paragraph",
+		},
+		{
+			name: "paragraph with attributes",
+			html: `<p class="intro">A paragraph with attributes</p>`,
+			want: "A paragraph with attributes",
+		},
+		{
+			name: "paragraph with inner nested tags",
+			html: "<p><strong>Bold</strong> text and <em>italic</em> text</p>",
+			want: "Bold text and italic text",
+		},
+		{
+			name: "paragraph with link inside",
+			html: `<p>Visit <a href="https://example.com">our site</a> today</p>`,
+			want: "Visit our site today",
+		},
+		{
+			name: "paragraph with image inside",
+			html: `<p><img src="pic.jpg" alt="photo"> Some text</p>`,
+			want: "Some text",
+		},
+		{
+			name: "paragraph with special characters",
+			html: "<p>Tom &amp; Jerry &lt;are&gt; friends</p>",
+			want: "Tom & Jerry <are> friends",
+		},
+		{
+			name: "paragraph with unicode",
+			html: "<p>Héllo Wörld café</p>",
+			want: "Héllo Wörld café",
+		},
+		{
+			name: "paragraph with line break tag",
+			html: "<p>Hello<br>World</p>",
+			want: "HelloWorld",
+		},
+		{
+			name: "paragraph with multiple break tags",
+			html: "<p>A<br>B<br>C</p>",
+			want: "ABC",
+		},
+		{
+			name: "paragraph empty text",
+			html: "<p></p>",
+			want: "",
+		},
+		{
+			name: "paragraph with only whitespace",
+			html: "<p>   </p>",
+			want: "",
+		},
+
+		// --- Multiple paragraphs - first wins ---
+		{
+			name: "multiple paragraphs - first wins",
+			html: "<p>First</p><p>Second</p><p>Third</p>",
+			want: "First",
+		},
+		{
+			name: "multiple paragraphs with content in between",
+			html: "<p>First</p><div>stuff</div><p>Second</p>",
+			want: "First",
+		},
+		{
+			name: "first paragraph empty, second has text",
+			html: "<p></p><p>Second</p>",
+			want: "",
+		},
+
+		// --- Paragraph after other elements ---
+		{
+			name: "paragraph after heading",
+			html: "<h1>Title</h1><p>Body text</p>",
+			want: "Body text",
+		},
+		{
+			name: "paragraph after div",
+			html: "<div>stuff</div><p>Paragraph here</p>",
+			want: "Paragraph here",
+		},
+		{
+			name: "paragraph deep in document",
+			html: "<!DOCTYPE html><html><body><p>Deep paragraph</p></body></html>",
+			want: "Deep paragraph",
+		},
+
+		// --- No paragraphs ---
+		{
+			name: "no p tags at all",
+			html: "<h1>Only a heading</h1>",
+			want: "",
+		},
+		{
+			name: "empty string",
+			html: "",
+			want: "",
+		},
+		{
+			name: "plain text no tags",
+			html: "Just plain text",
+			want: "",
+		},
+		{
+			name: "only h1 h2 h3 tags",
+			html: "<h1>H1</h1><h2>H2</h2><h3>H3</h3>",
+			want: "",
+		},
+		{
+			name: "only div tags",
+			html: "<div>Content</div>",
+			want: "",
+		},
+
+		// --- Edge cases ---
+		{
+			name: "paragraph with mixed case tag",
+			html: "<P>Mixed Case Paragraph</P>",
+			want: "Mixed Case Paragraph",
+		},
+		{
+			name: "paragraph not closed",
+			html: "<p>Unclosed paragraph",
+			want: "Unclosed paragraph",
+		},
+		{
+			name: "very long paragraph",
+			html: "<p>" + strings.Repeat("word ", 500) + "</p>",
+			want: strings.TrimRight(strings.Repeat("word ", 500), " "),
+		},
+		{
+			name: "paragraph with unicode escapes",
+			html: "<p>Price: 100&cent;</p>",
+			want: "Price: 100¢",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getFirstParagraphFromHTML(tt.html)
+			if got != tt.want {
+				t.Errorf("getFirstParagraphFromHTML() = %v, want %v", got, tt.want)
 			}
 		})
 	}

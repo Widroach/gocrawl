@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -475,4 +476,113 @@ func Test_getFirstParagraphFromHTML(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_getURLsFromHTML(t *testing.T) {
+	tests := []struct {
+		name string
+		htmlBody string
+		baseURL  *url.URL
+		want     []string
+		wantErr  bool
+	}{
+		{
+			name:     "single absolute link",
+			htmlBody: `<a href="https://boot.dev/blog">Blog</a>`,
+			baseURL:  parseTestURL("https://boot.dev"),
+			want:     []string{"https://boot.dev/blog"},
+		},
+		{
+			name:     "single relative link",
+			htmlBody: `<a href="/blog">Blog</a>`,
+			baseURL:  parseTestURL("https://boot.dev"),
+			want:     []string{"https://boot.dev/blog"},
+		},
+		{
+			name:     "single relative link 2",
+			htmlBody: `<a href="./blog">Blog</a>`,
+			baseURL:  parseTestURL("https://boot.dev"),
+			want:     []string{"https://boot.dev/blog"},
+		},
+		{
+			name:     "single relative link 3",
+			htmlBody: `<a href="blog">Blog</a>`,
+			baseURL:  parseTestURL("https://boot.dev"),
+			want:     []string{"https://boot.dev/blog"},
+		},
+		{
+			name:     "relative link resolved against base",
+			htmlBody: `<a href="/blog">Blog</a>`,
+			baseURL:  parseTestURL("https://boot.dev"),
+			want:     []string{"https://boot.dev/blog"},
+		},
+		{
+			name: "multiple links",
+			htmlBody: `
+				<a href="/about">About</a>
+				<a href="/blog">Blog</a>
+				<a href="/contact">Contact</a>
+			`,
+			baseURL: parseTestURL("https://boot.dev"),
+			want:    []string{"https://boot.dev/about", "https://boot.dev/blog", "https://boot.dev/contact"},
+		},
+		{
+			name:     "link inside main content",
+			htmlBody: `<main><a href="/page">Click</a></main>`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{"https://example.com/page"},
+		},
+		{
+			name:     "no links in HTML",
+			htmlBody: `<p>No links here</p>`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{},
+		},
+		{
+			name:     "empty HTML",
+			htmlBody: ``,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{},
+		},
+		{
+			name:     "link without href",
+			htmlBody: `<a>no href</a>`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{},
+		},
+		{
+			name:     "nested link in heading",
+			htmlBody: `<h1><a href="/title">Title</a></h1>`,
+			baseURL:  parseTestURL("https://boot.dev"),
+			want:     []string{"https://boot.dev/title"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := getURLsFromHTML(tt.htmlBody, tt.baseURL)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("getURLsFromHTML() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("getURLsFromHTML() succeeded unexpectedly")
+			}
+			if len(got) != len(tt.want) {
+				t.Errorf("getURLsFromHTML() returned %d URLs, want %d\ngot:  %v\nwant: %v", len(got), len(tt.want), got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("getURLsFromHTML() URL[%d] = %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func parseTestURL(rawURL string) *url.URL {
+	u, _ := url.Parse(rawURL)
+	return u
 }

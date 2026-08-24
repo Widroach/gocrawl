@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 )
 
@@ -19,6 +20,12 @@ func main() {
 
 	baseURL := args[1]
 
-	fmt.Printf("starting crawl of: %s", baseURL)
-	fmt.Print(getHTML(baseURL))
+	slog.Info("starting to crawl page", "url", baseURL)
+	pages := map[string]int{}
+	crawlPage(baseURL, baseURL, pages)
+	for key, value := range pages {
+		fmt.Printf("Domain: %s, count: %d\n", key, value)
+	}
+	slog.Info("finished crawling URLs", "total", len(pages))
+
 }

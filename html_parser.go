@@ -1,8 +1,13 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -13,6 +18,34 @@ type PageData struct {
 	FirstParagraph string
 	OutgoingLinks  []string
 	ImageURLs      []string
+}
+
+func getHTML(rawURL string) (string, error) {
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating the request: %v", err)
+	}
+	req.Header.Add("User-Agent", "GoCrawl/1.0.0")
+	client := &http.Client{Timeout: time.Second * 5}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error requesting %v: %v", rawURL, err)
+	}
+	defer resp.Body.Close()
+
+	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
+		return "", errors.New("resource returned non-html content")
+	}
+
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("failed to request %v, returned %v", rawURL, resp.Status)
+	}
+	html, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read the response: %v", err)
+	}
+
+	return string(html), nil
 }
 
 func getHeadingFromHTML(html string) string {

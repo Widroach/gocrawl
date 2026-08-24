@@ -718,9 +718,9 @@ func Test_extractPageData(t *testing.T) {
 			`,
 			pageURL: "https://example.com",
 			want: PageData{
-				URL:            "https://example.com",
-				Heading:        "Links Page",
-				OutgoingLinks:  []string{"https://example.com/about", "https://example.com/contact", "https://external.com"},
+				URL:           "https://example.com",
+				Heading:       "Links Page",
+				OutgoingLinks: []string{"https://example.com/about", "https://example.com/contact", "https://external.com"},
 			},
 		},
 		{
@@ -732,9 +732,9 @@ func Test_extractPageData(t *testing.T) {
 			`,
 			pageURL: "https://example.com/gallery",
 			want: PageData{
-				URL:            "https://example.com/gallery",
-				Heading:        "Gallery",
-				ImageURLs:      []string{"https://example.com/images/photo1.jpg", "https://example.com/images/photo2.png"},
+				URL:       "https://example.com/gallery",
+				Heading:   "Gallery",
+				ImageURLs: []string{"https://example.com/images/photo1.jpg", "https://example.com/images/photo2.png"},
 			},
 		},
 		{
@@ -755,8 +755,8 @@ func Test_extractPageData(t *testing.T) {
 			},
 		},
 		{
-			name: "empty page",
-			html: ``,
+			name:    "empty page",
+			html:    ``,
 			pageURL: "https://example.com/empty",
 			want: PageData{
 				URL: "https://example.com/empty",
@@ -816,6 +816,57 @@ func Test_extractPageData(t *testing.T) {
 						t.Errorf("ImageURLs[%d] = %v, want %v", i, got.ImageURLs[i], tt.want.ImageURLs[i])
 					}
 				}
+			}
+		})
+	}
+}
+
+func Test_getHTML(t *testing.T) {
+	tests := []struct {
+		name    string
+		rawURL  string
+		wantErr bool
+	}{
+		{
+			name:    "fetch example.com",
+			rawURL:  "https://example.com",
+			wantErr: false,
+		},
+		{
+			name:    "invalid URL syntax",
+			rawURL:  "://bad-url",
+			wantErr: true,
+		},
+		{
+			name:    "non-existent host",
+			rawURL:  "http://thishostdoesnotexist.invalid",
+			wantErr: true,
+		},
+		{
+			name:    "empty URL string",
+			rawURL:  "",
+			wantErr: true,
+		},
+		{
+			name:    "http scheme",
+			rawURL:  "http://example.com",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := getHTML(tt.rawURL)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("getHTML() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("getHTML() succeeded unexpectedly")
+			}
+			if got == "" {
+				t.Error("getHTML() returned empty string, expected non-empty HTML")
 			}
 		})
 	}

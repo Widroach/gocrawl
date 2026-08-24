@@ -480,7 +480,7 @@ func Test_getFirstParagraphFromHTML(t *testing.T) {
 
 func Test_getURLsFromHTML(t *testing.T) {
 	tests := []struct {
-		name string
+		name     string
 		htmlBody string
 		baseURL  *url.URL
 		want     []string
@@ -669,6 +669,152 @@ func Test_getImagesFromHTML(t *testing.T) {
 			for i := range got {
 				if got[i] != tt.want[i] {
 					t.Errorf("getImagesFromHTML() URL[%d] = %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func Test_extractPageData(t *testing.T) {
+	tests := []struct {
+		name    string
+		html    string
+		pageURL string
+		want    PageData
+	}{
+		{
+			name: "full page with h1 and paragraph",
+			html: `
+				<h1>My Page Title</h1>
+				<p>This is the first paragraph with some content.</p>
+			`,
+			pageURL: "https://example.com/page1",
+			want: PageData{
+				URL:            "https://example.com/page1",
+				Heading:        "My Page Title",
+				FirstParagraph: "This is the first paragraph with some content.",
+			},
+		},
+		{
+			name: "full page with h2 fallback",
+			html: `
+				<h2>Sub Heading</h2>
+				<p>Some paragraph text.</p>
+			`,
+			pageURL: "https://example.com/page2",
+			want: PageData{
+				URL:            "https://example.com/page2",
+				Heading:        "Sub Heading",
+				FirstParagraph: "Some paragraph text.",
+			},
+		},
+		{
+			name: "page with outgoing links",
+			html: `
+				<h1>Links Page</h1>
+				<a href="/about">About</a>
+				<a href="/contact">Contact</a>
+				<a href="https://external.com">External</a>
+			`,
+			pageURL: "https://example.com",
+			want: PageData{
+				URL:            "https://example.com",
+				Heading:        "Links Page",
+				OutgoingLinks:  []string{"https://example.com/about", "https://example.com/contact", "https://external.com"},
+			},
+		},
+		{
+			name: "page with images",
+			html: `
+				<h1>Gallery</h1>
+				<img src="/images/photo1.jpg">
+				<img src="/images/photo2.png">
+			`,
+			pageURL: "https://example.com/gallery",
+			want: PageData{
+				URL:            "https://example.com/gallery",
+				Heading:        "Gallery",
+				ImageURLs:      []string{"https://example.com/images/photo1.jpg", "https://example.com/images/photo2.png"},
+			},
+		},
+		{
+			name: "page with everything",
+			html: `
+				<h1>Full Page</h1>
+				<p>First paragraph here.</p>
+				<a href="/link1">Link 1</a>
+				<img src="/img1.jpg">
+			`,
+			pageURL: "https://example.com/full",
+			want: PageData{
+				URL:            "https://example.com/full",
+				Heading:        "Full Page",
+				FirstParagraph: "First paragraph here.",
+				OutgoingLinks:  []string{"https://example.com/link1"},
+				ImageURLs:      []string{"https://example.com/img1.jpg"},
+			},
+		},
+		{
+			name: "empty page",
+			html: ``,
+			pageURL: "https://example.com/empty",
+			want: PageData{
+				URL: "https://example.com/empty",
+			},
+		},
+		{
+			name: "page with only paragraphs",
+			html: `
+				<p>First paragraph.</p>
+				<p>Second paragraph.</p>
+			`,
+			pageURL: "https://example.com/text",
+			want: PageData{
+				URL:            "https://example.com/text",
+				FirstParagraph: "First paragraph.",
+			},
+		},
+		{
+			name: "page with only images",
+			html: `
+				<img src="/a.jpg">
+				<img src="/b.jpg">
+			`,
+			pageURL: "https://example.com/imgs",
+			want: PageData{
+				URL:       "https://example.com/imgs",
+				ImageURLs: []string{"https://example.com/a.jpg", "https://example.com/b.jpg"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractPageData(tt.html, tt.pageURL)
+			if got.URL != tt.want.URL {
+				t.Errorf("URL = %v, want %v", got.URL, tt.want.URL)
+			}
+			if got.Heading != tt.want.Heading {
+				t.Errorf("Heading = %v, want %v", got.Heading, tt.want.Heading)
+			}
+			if got.FirstParagraph != tt.want.FirstParagraph {
+				t.Errorf("FirstParagraph = %v, want %v", got.FirstParagraph, tt.want.FirstParagraph)
+			}
+			if len(got.OutgoingLinks) != len(tt.want.OutgoingLinks) {
+				t.Errorf("OutgoingLinks = %v (len %d), want %v (len %d)", got.OutgoingLinks, len(got.OutgoingLinks), tt.want.OutgoingLinks, len(tt.want.OutgoingLinks))
+			} else {
+				for i := range got.OutgoingLinks {
+					if got.OutgoingLinks[i] != tt.want.OutgoingLinks[i] {
+						t.Errorf("OutgoingLinks[%d] = %v, want %v", i, got.OutgoingLinks[i], tt.want.OutgoingLinks[i])
+					}
+				}
+			}
+			if len(got.ImageURLs) != len(tt.want.ImageURLs) {
+				t.Errorf("ImageURLs = %v (len %d), want %v (len %d)", got.ImageURLs, len(got.ImageURLs), tt.want.ImageURLs, len(tt.want.ImageURLs))
+			} else {
+				for i := range got.ImageURLs {
+					if got.ImageURLs[i] != tt.want.ImageURLs[i] {
+						t.Errorf("ImageURLs[%d] = %v, want %v", i, got.ImageURLs[i], tt.want.ImageURLs[i])
+					}
 				}
 			}
 		})

@@ -7,6 +7,14 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+type PageData struct {
+	URL            string
+	Heading        string
+	FirstParagraph string
+	OutgoingLinks  []string
+	ImageURLs      []string
+}
+
 func getHeadingFromHTML(html string) string {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
@@ -64,6 +72,35 @@ func getImagesFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
 		}
 	})
 	return imageURLs, nil
+}
+
+func extractPageData(html, pageURL string) PageData {
+	// TODO: It doesn't return errors, it should be handled
+	parsedBasedURL, err := url.Parse(pageURL)
+	if err != nil {
+		return PageData{}
+	}
+
+	heading := getHeadingFromHTML(html)
+	firstParagraph := getFirstParagraphFromHTML(html)
+
+	links, err := getURLsFromHTML(html, parsedBasedURL)
+	if err != nil {
+		return PageData{}
+	}
+
+	imageLinks, err := getImagesFromHTML(html, parsedBasedURL)
+	if err != nil {
+		return PageData{}
+	}
+
+	return PageData{
+		URL:            pageURL,
+		Heading:        heading,
+		FirstParagraph: firstParagraph,
+		OutgoingLinks:  links,
+		ImageURLs:      imageLinks,
+	}
 }
 
 // This function safely constructs an absolute URL from the base URL and from the relative path. Warning, it assumes the relative path is correct when parsed with [url.Parse]

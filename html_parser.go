@@ -48,6 +48,25 @@ func getURLsFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
 	return urls, nil
 }
 
+func getImagesFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
+	imageURLs := []string{}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlBody))
+	if err != nil {
+		return imageURLs, err
+	}
+	doc.Find("img[src]").Each(func(i int, s *goquery.Selection) {
+		href, ok := s.Attr("src")
+		if ok {
+			if !isAbsolute(href) {
+				href = resolveURL(*baseURL, href)
+			}
+			imageURLs = append(imageURLs, href)
+		}
+	})
+	return imageURLs, nil
+}
+
+// This function safely constructs an absolute URL from the base URL and from the relative path. Warning, it assumes the relative path is correct when parsed with [url.Parse]
 func resolveURL(baseURL url.URL, relativePath string) (absoluteURL string) {
 	relativeURL, _ := url.Parse(relativePath)
 	return baseURL.ResolveReference(relativeURL).String()

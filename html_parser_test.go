@@ -586,3 +586,91 @@ func parseTestURL(rawURL string) *url.URL {
 	u, _ := url.Parse(rawURL)
 	return u
 }
+
+func Test_getImagesFromHTML(t *testing.T) {
+	tests := []struct {
+		name     string
+		htmlBody string
+		baseURL  *url.URL
+		want     []string
+		wantErr  bool
+	}{
+		{
+			name:     "single absolute image",
+			htmlBody: `<img src="https://example.com/photo.jpg">`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{"https://example.com/photo.jpg"},
+		},
+		{
+			name:     "single relative image resolved against base",
+			htmlBody: `<img src="/images/photo.jpg">`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{"https://example.com/images/photo.jpg"},
+		},
+		{
+			name:     "multiple images",
+			htmlBody: `<img src="/a.png"><img src="/b.png"><img src="/c.png">`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{"https://example.com/a.png", "https://example.com/b.png", "https://example.com/c.png"},
+		},
+		{
+			name:     "image inside div",
+			htmlBody: `<div><img src="/nested.jpg"></div>`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{"https://example.com/nested.jpg"},
+		},
+		{
+			name:     "image inside figure",
+			htmlBody: `<figure><img src="/fig.jpg" alt="a figure"></figure>`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{"https://example.com/fig.jpg"},
+		},
+		{
+			name:     "no images in HTML",
+			htmlBody: `<p>No images here</p>`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{},
+		},
+		{
+			name:     "empty HTML",
+			htmlBody: ``,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{},
+		},
+		{
+			name:     "image without src attribute",
+			htmlBody: `<img alt="no src">`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{},
+		},
+		{
+			name:     "mixed links and images",
+			htmlBody: `<a href="/page"><img src="/thumb.jpg"></a>`,
+			baseURL:  parseTestURL("https://example.com"),
+			want:     []string{"https://example.com/thumb.jpg"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, gotErr := getImagesFromHTML(tt.htmlBody, tt.baseURL)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("getImagesFromHTML() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("getImagesFromHTML() succeeded unexpectedly")
+			}
+			if len(got) != len(tt.want) {
+				t.Errorf("getImagesFromHTML() returned %d images, want %d\ngot:  %v\nwant: %v", len(got), len(tt.want), got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("getImagesFromHTML() URL[%d] = %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}

@@ -27,12 +27,9 @@ func main() {
 	cfg.wg.Add(1)
 	go cfg.crawlPage(baseURL)
 	cfg.wg.Wait()
-	for key, value := range cfg.pages {
-		fmt.Printf("Domain: %s, count: %d\n", key, len(value.OutgoingLinks))
-	}
-	for key, _ := range cfg.externalPages {
-		fmt.Printf("External domain: %s\n", key)
-	}
 	slog.Info("finished crawling URLs", "total_url", len(cfg.pages)+len(cfg.externalPages))
+	if err := writeJSONReport(cfg.pages, "report.json"); err != nil {
+		slog.Error("error saving the result", "err", err)
+	}
 
 }

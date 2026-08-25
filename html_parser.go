@@ -13,11 +13,11 @@ import (
 )
 
 type PageData struct {
-	URL            string
-	Heading        string
-	FirstParagraph string
-	OutgoingLinks  []string
-	ImageURLs      []string
+	URL            string   `json:"url"`
+	Heading        string   `json:"heading"`
+	FirstParagraph string   `json:"first_paragraph"`
+	OutgoingLinks  []string `json:"outgoing_links"`
+	ImageURLs      []string `json:"image_urls"`
 }
 
 func getHTML(rawURL string) (string, error) {
@@ -115,31 +115,26 @@ func getImagesFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
 
 func extractPageData(html, pageURL string) PageData {
 	// TODO: It doesn't return errors, it should be handled
+	data := PageData{URL: pageURL}
 	parsedBasedURL, err := url.Parse(pageURL)
 	if err != nil {
-		return PageData{}
+		return data
 	}
 
-	heading := getHeadingFromHTML(html)
-	firstParagraph := getFirstParagraphFromHTML(html)
+	data.Heading = getHeadingFromHTML(html)
+	data.FirstParagraph = getFirstParagraphFromHTML(html)
 
-	links, err := getURLsFromHTML(html, parsedBasedURL)
+	data.OutgoingLinks, err = getURLsFromHTML(html, parsedBasedURL)
 	if err != nil {
-		return PageData{}
+		return data
 	}
 
-	imageLinks, err := getImagesFromHTML(html, parsedBasedURL)
+	data.ImageURLs, err = getImagesFromHTML(html, parsedBasedURL)
 	if err != nil {
-		return PageData{}
+		return data
 	}
 
-	return PageData{
-		URL:            pageURL,
-		Heading:        heading,
-		FirstParagraph: firstParagraph,
-		OutgoingLinks:  links,
-		ImageURLs:      imageLinks,
-	}
+	return data
 }
 
 // This function safely constructs an absolute URL from the base URL and from the relative path. Warning, it assumes the relative path is correct when parsed with [url.Parse]

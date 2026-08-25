@@ -24,8 +24,9 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		return
 	}
 
-	normalizedURL, _ := normalizeURL(rawCurrentURL)
-	if isFirst := cfg.addPageVisit(normalizedURL); !isFirst {
+	normalizedURL, err := normalizeURL(rawCurrentURL)
+	if err != nil {
+		slog.Warn("failed to normalize url", "url", rawCurrentURL, "err", err)
 		return
 	}
 
@@ -34,6 +35,11 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		slog.Warn("failed to get html", "warn", err)
 		return
 	}
+
+	if isFirst := cfg.addPageVisit(normalizedURL); !isFirst {
+		return
+	}
+
 	pageData := extractPageData(html, rawCurrentURL)
 	cfg.setPageData(normalizedURL, pageData)
 	for _, url := range pageData.OutgoingLinks {

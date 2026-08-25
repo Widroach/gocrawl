@@ -81,7 +81,10 @@ func getURLsFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
 		href, ok := s.Attr("href")
 		if ok {
 			if !isAbsolute(href) {
-				href = resolveURL(*baseURL, href)
+				href, err = resolveURL(*baseURL, href)
+				if err != nil {
+					return
+				}
 			}
 			urls = append(urls, href)
 		}
@@ -99,7 +102,10 @@ func getImagesFromHTML(htmlBody string, baseURL *url.URL) ([]string, error) {
 		href, ok := s.Attr("src")
 		if ok {
 			if !isAbsolute(href) {
-				href = resolveURL(*baseURL, href)
+				href, err = resolveURL(*baseURL, href)
+				if err != nil {
+					return
+				}
 			}
 			imageURLs = append(imageURLs, href)
 		}
@@ -137,9 +143,12 @@ func extractPageData(html, pageURL string) PageData {
 }
 
 // This function safely constructs an absolute URL from the base URL and from the relative path. Warning, it assumes the relative path is correct when parsed with [url.Parse]
-func resolveURL(baseURL url.URL, relativePath string) (absoluteURL string) {
-	relativeURL, _ := url.Parse(relativePath)
-	return baseURL.ResolveReference(relativeURL).String()
+func resolveURL(baseURL url.URL, relativePath string) (absoluteURL string, err error) {
+	relativeURL, err := url.Parse(relativePath)
+	if err != nil {
+		return "", err
+	}
+	return baseURL.ResolveReference(relativeURL).String(), nil
 }
 
 func isAbsolute(href string) bool {

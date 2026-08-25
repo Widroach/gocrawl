@@ -3,9 +3,11 @@ package main
 import (
 	"net/url"
 	"sync"
+	"sync/atomic"
 )
 
 type config struct {
+	maxPages           atomic.Int64
 	pages              map[string]PageData
 	externalPages      map[string]any
 	baseURL            *url.URL
@@ -25,6 +27,7 @@ func (cfg *config) addPageVisit(normalizedURL string) (isFirst bool) {
 
 	cfg.pages[normalizedURL] = PageData{URL: normalizedURL}
 	return true
+
 }
 
 func (cfg *config) addExternalPage(externalPageURL string) {
@@ -40,13 +43,19 @@ func (cfg *config) setPageData(normalizedURL string, data PageData) {
 	cfg.pages[normalizedURL] = data
 }
 
-func initialize(baseURL string, maxThreads int) (config, error) {
+func (cfg *config) lenPages() int {
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
+	return len(cfg.pages)
+}
+
+func initialize(baseURL string, maxThreads, maxPages int) (*config, error) {
 	parsedBaseURL, err := url.Parse(baseURL)
 	if err != nil {
-		return config{}, err
+		return &config{}, err
 	}
 
-	return config{
+	cfg := &config{
 		pages:              map[string]PageData{},
 		mu:                 &sync.Mutex{},
 		concurrencyControl: make(chan struct{}, maxThreads),
@@ -54,5 +63,8 @@ func initialize(baseURL string, maxThreads int) (config, error) {
 		baseURL:            parsedBaseURL,
 		allowSubdomains:    false,
 		externalPages:      map[string]any{},
-	}, nil
+		maxPages:           atomic.Int64{},
+	}
+	cfg.maxPages.Store(int64(maxPages))
+	return cfg, nil
 }

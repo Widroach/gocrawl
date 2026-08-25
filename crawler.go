@@ -13,6 +13,11 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		cfg.wg.Done()
 	}()
 
+	maxPages := int(cfg.maxPages.Load())
+	if maxPages > 0 && cfg.lenPages() >= maxPages {
+		return
+	}
+
 	if !isSameDomain(cfg.baseURL.String(), rawCurrentURL, cfg.allowSubdomains) {
 		slog.Debug("skipping page crawling, current URL is a different domain than its parent", "current", rawCurrentURL, "parent", cfg.baseURL)
 		cfg.addExternalPage(rawCurrentURL)

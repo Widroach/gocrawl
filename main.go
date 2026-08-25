@@ -1,24 +1,24 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 )
 
 func main() {
-	args := os.Args
-	if len(os.Args) < 2 {
-		fmt.Println("no website provided")
-		os.Exit(1)
-	}
-	if len(os.Args) > 2 {
-		fmt.Println("too many arguments provided")
+	maxThreads := flag.Int("threads", 3, "max concurrent threads")
+	maxPages := flag.Int("limit", 0, "max pages to crawl (0 = unlimited)")
+	flag.Parse()
+	baseURL := flag.Arg(0)
+
+	if flag.NArg() < 1 {
+		fmt.Println("usage: gocrawl  [--threads N] [--limit N] <url>")
 		os.Exit(1)
 	}
 
-	baseURL := args[1]
-	cfg, err := initialize(baseURL, 10)
+	cfg, err := initialize(baseURL, *maxThreads, *maxPages)
 	if err != nil {
 		slog.Error("failed to initialize", "err", err)
 		return
@@ -33,6 +33,6 @@ func main() {
 	for key, _ := range cfg.externalPages {
 		fmt.Printf("External domain: %s\n", key)
 	}
-	slog.Info("finished crawling URLs", "total_url", len(cfg.pages) + len(cfg.externalPages))
+	slog.Info("finished crawling URLs", "total_url", len(cfg.pages)+len(cfg.externalPages))
 
 }
